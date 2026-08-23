@@ -123,9 +123,6 @@ class Transaction(SQLModel, table=True):
     amount: float
     type: str
 
-    # IMPORTANT:
-    # Do NOT add foreign_key="auth.users.id" here.
-    # Supabase already has the real database foreign key.
     user_id: Optional[UUID] = Field(default=None)
 
 
@@ -199,11 +196,6 @@ class Investment(SQLModel, table=True):
 # =========================================================
 
 
-# -------------------------
-# TRANSACTIONS
-# -------------------------
-
-
 class TransactionCreate(SQLModel):
     merchant: str
     category: str
@@ -232,11 +224,6 @@ class TransactionRead(SQLModel):
     type: str
 
 
-# -------------------------
-# ACCOUNTS
-# -------------------------
-
-
 class AccountCreate(SQLModel):
     name: str
     type: str
@@ -259,11 +246,6 @@ class AccountRead(SQLModel):
     institution: Optional[str] = None
 
 
-# -------------------------
-# BUDGETS
-# -------------------------
-
-
 class BudgetCreate(SQLModel):
     category: str
     monthly_limit: float
@@ -281,11 +263,6 @@ class BudgetRead(SQLModel):
     category: str
     monthly_limit: float
     spent: float
-
-
-# -------------------------
-# GOALS
-# -------------------------
 
 
 class GoalCreate(SQLModel):
@@ -308,11 +285,6 @@ class GoalRead(SQLModel):
     target_amount: float
     saved_amount: float
     target_date: Optional[date] = None
-
-
-# -------------------------
-# INVESTMENTS
-# -------------------------
 
 
 class InvestmentCreate(SQLModel):
@@ -361,6 +333,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "https://finsight-ai-web-three.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -410,9 +383,7 @@ def get_transactions(
         .order_by(Transaction.transaction_date.desc())
     )
 
-    transactions = session.exec(statement).all()
-
-    return transactions
+    return session.exec(statement).all()
 
 
 @app.post(
@@ -424,8 +395,6 @@ def create_transaction(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     transaction = Transaction(
         merchant=transaction_data.merchant,
         category=transaction_data.category,
@@ -433,7 +402,7 @@ def create_transaction(
         account=transaction_data.account,
         amount=transaction_data.amount,
         type=transaction_data.type,
-        user_id=user_id,
+        user_id=get_user_id(user),
     )
 
     session.add(transaction)
@@ -453,11 +422,9 @@ def update_transaction(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Transaction).where(
         Transaction.id == transaction_id,
-        Transaction.user_id == user_id,
+        Transaction.user_id == get_user_id(user),
     )
 
     transaction = session.exec(statement).first()
@@ -470,9 +437,7 @@ def update_transaction(
 
     transaction.merchant = transaction_data.merchant
     transaction.category = transaction_data.category
-    transaction.transaction_date = (
-        transaction_data.transaction_date
-    )
+    transaction.transaction_date = transaction_data.transaction_date
     transaction.account = transaction_data.account
     transaction.amount = transaction_data.amount
     transaction.type = transaction_data.type
@@ -490,11 +455,9 @@ def delete_transaction(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Transaction).where(
         Transaction.id == transaction_id,
-        Transaction.user_id == user_id,
+        Transaction.user_id == get_user_id(user),
     )
 
     transaction = session.exec(statement).first()
@@ -526,15 +489,11 @@ def get_accounts(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Account).where(
-        Account.user_id == user_id
+        Account.user_id == get_user_id(user)
     )
 
-    accounts = session.exec(statement).all()
-
-    return accounts
+    return session.exec(statement).all()
 
 
 @app.post(
@@ -546,14 +505,12 @@ def create_account(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     account = Account(
         name=account_data.name,
         type=account_data.type,
         balance=account_data.balance,
         institution=account_data.institution,
-        user_id=user_id,
+        user_id=get_user_id(user),
     )
 
     session.add(account)
@@ -573,11 +530,9 @@ def update_account(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Account).where(
         Account.id == account_id,
-        Account.user_id == user_id,
+        Account.user_id == get_user_id(user),
     )
 
     account = session.exec(statement).first()
@@ -606,11 +561,9 @@ def delete_account(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Account).where(
         Account.id == account_id,
-        Account.user_id == user_id,
+        Account.user_id == get_user_id(user),
     )
 
     account = session.exec(statement).first()
@@ -642,15 +595,11 @@ def get_budgets(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Budget).where(
-        Budget.user_id == user_id
+        Budget.user_id == get_user_id(user)
     )
 
-    budgets = session.exec(statement).all()
-
-    return budgets
+    return session.exec(statement).all()
 
 
 @app.post(
@@ -662,13 +611,11 @@ def create_budget(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     budget = Budget(
         category=budget_data.category,
         monthly_limit=budget_data.monthly_limit,
         spent=budget_data.spent,
-        user_id=user_id,
+        user_id=get_user_id(user),
     )
 
     session.add(budget)
@@ -688,11 +635,9 @@ def update_budget(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Budget).where(
         Budget.id == budget_id,
-        Budget.user_id == user_id,
+        Budget.user_id == get_user_id(user),
     )
 
     budget = session.exec(statement).first()
@@ -720,11 +665,9 @@ def delete_budget(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Budget).where(
         Budget.id == budget_id,
-        Budget.user_id == user_id,
+        Budget.user_id == get_user_id(user),
     )
 
     budget = session.exec(statement).first()
@@ -756,15 +699,11 @@ def get_goals(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Goal).where(
-        Goal.user_id == user_id
+        Goal.user_id == get_user_id(user)
     )
 
-    goals = session.exec(statement).all()
-
-    return goals
+    return session.exec(statement).all()
 
 
 @app.post(
@@ -776,14 +715,12 @@ def create_goal(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     goal = Goal(
         name=goal_data.name,
         target_amount=goal_data.target_amount,
         saved_amount=goal_data.saved_amount,
         target_date=goal_data.target_date,
-        user_id=user_id,
+        user_id=get_user_id(user),
     )
 
     session.add(goal)
@@ -803,11 +740,9 @@ def update_goal(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Goal).where(
         Goal.id == goal_id,
-        Goal.user_id == user_id,
+        Goal.user_id == get_user_id(user),
     )
 
     goal = session.exec(statement).first()
@@ -836,11 +771,9 @@ def delete_goal(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Goal).where(
         Goal.id == goal_id,
-        Goal.user_id == user_id,
+        Goal.user_id == get_user_id(user),
     )
 
     goal = session.exec(statement).first()
@@ -872,15 +805,11 @@ def get_investments(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Investment).where(
-        Investment.user_id == user_id
+        Investment.user_id == get_user_id(user)
     )
 
-    investments = session.exec(statement).all()
-
-    return investments
+    return session.exec(statement).all()
 
 
 @app.post(
@@ -892,8 +821,6 @@ def create_investment(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     investment = Investment(
         symbol=investment_data.symbol,
         name=investment_data.name,
@@ -901,7 +828,7 @@ def create_investment(
         purchase_price=investment_data.purchase_price,
         current_price=investment_data.current_price,
         asset_type=investment_data.asset_type,
-        user_id=user_id,
+        user_id=get_user_id(user),
     )
 
     session.add(investment)
@@ -921,11 +848,9 @@ def update_investment(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Investment).where(
         Investment.id == investment_id,
-        Investment.user_id == user_id,
+        Investment.user_id == get_user_id(user),
     )
 
     investment = session.exec(statement).first()
@@ -939,12 +864,8 @@ def update_investment(
     investment.symbol = investment_data.symbol
     investment.name = investment_data.name
     investment.quantity = investment_data.quantity
-    investment.purchase_price = (
-        investment_data.purchase_price
-    )
-    investment.current_price = (
-        investment_data.current_price
-    )
+    investment.purchase_price = investment_data.purchase_price
+    investment.current_price = investment_data.current_price
     investment.asset_type = investment_data.asset_type
 
     session.add(investment)
@@ -960,11 +881,9 @@ def delete_investment(
     session: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    user_id = get_user_id(user)
-
     statement = select(Investment).where(
         Investment.id == investment_id,
-        Investment.user_id == user_id,
+        Investment.user_id == get_user_id(user),
     )
 
     investment = session.exec(statement).first()
